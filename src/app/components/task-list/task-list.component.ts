@@ -1,37 +1,38 @@
-import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild, AfterViewInit } from '@angular/core';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { Subscription } from 'rxjs';
 import { Task } from 'src/app/models/task.model';
 import { TaskService } from 'src/app/services/task/task.service';
 
-
 @Component({
   selector: 'app-task-list',
   templateUrl: './task-list.component.html',
   styleUrls: ['./task-list.component.scss']
 })
-export class TaskListComponent implements OnInit, OnDestroy {
-
+export class TaskListComponent implements OnInit, AfterViewInit, OnDestroy {
   statusFilter = '';
   displayedColumns: string[] = ['title', 'description', 'status', 'dueDate', 'character'];
-  private subscriptions = new Subscription();
   dataSource = new MatTableDataSource<Task>();
+  private subscriptions = new Subscription();
+
   @ViewChild(MatPaginator) paginator!: MatPaginator;
 
   constructor(private taskService: TaskService) {}
 
   ngOnInit(): void {
+    // Asegura que tengamos datos iniciales
     this.taskService.loadMockDataIfEmpty();
-    this.loadTasks();
 
-    const sub = this.taskService.taskAdded$.subscribe(() => {
-      this.loadTasks();
+    // Suscribirse a los cambios de tareas
+    const sub = this.taskService.getTasks$().subscribe(tasks => {
+      this.updateTable(tasks);
     });
+
     this.subscriptions.add(sub);
   }
 
-  ngAfterViewInit() {
+  ngAfterViewInit(): void {
     this.dataSource.paginator = this.paginator;
   }
 
@@ -39,18 +40,14 @@ export class TaskListComponent implements OnInit, OnDestroy {
     this.subscriptions.unsubscribe();
   }
 
-  loadTasks() {
-    this.taskService.loadMockDataIfEmpty();
+  applyFilter(): void {
     const tasks = this.taskService.getTasks();
-    this.dataSource.data = tasks;
-    this.applyFilter();
+    this.updateTable(tasks);
   }
 
-  applyFilter() {
-    const tasks = this.taskService.getTasks();
+  private updateTable(tasks: Task[]): void {
     this.dataSource.data = this.statusFilter
-      ? tasks.filter(t => t.status === this.statusFilter)
+      ? tasks.filter(task => task.status === this.statusFilter)
       : tasks;
   }
 }
-
